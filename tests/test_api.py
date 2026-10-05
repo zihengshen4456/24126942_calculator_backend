@@ -1,4 +1,4 @@
-"""接口层集成测试：覆盖计算、历史查询、删除与清空。"""
+"""Integration tests for the HTTP layer: calculate, history, delete, statistics."""
 
 import os
 import sys

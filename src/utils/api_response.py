@@ -1,7 +1,7 @@
-"""统一 API 响应格式。
+"""Unified API response format.
 
-成功：{"success": true, ...业务字段}
-失败：{"success": false, "message": "...", "code": "..."}
+Success: {"success": true, ...business fields}
+Failure: {"success": false, "message": "...", "code": "..."}
 """
 
 from typing import Any, Dict, Optional, Tuple

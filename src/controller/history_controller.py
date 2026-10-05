@@ -1,4 +1,4 @@
-"""计算历史相关接口：查询 / 删除单条 / 清空。"""
+"""History endpoints: list, delete one, clear all and statistics."""
 
 from flask import Blueprint, request
 
@@ -15,12 +15,12 @@ def _parse_int(raw, field: str, default: int) -> int:
     try:
         return int(raw)
     except (TypeError, ValueError):
-        raise ValidationError(f"参数 {field} 必须是整数")
+        raise ValidationError(f"Query parameter '{field}' must be an integer")
 
 
 @history_blueprint.get("/api/history")
 def list_history():
-    """支持关键字搜索与分页的历史查询。"""
+    """Return history with keyword filtering and pagination."""
     page = _parse_int(request.args.get("page"), "page", 1)
     page_size = _parse_int(request.args.get("pageSize"), "pageSize", 10)
     keyword = request.args.get("keyword", "")
@@ -29,19 +29,19 @@ def list_history():
 
 @history_blueprint.delete("/api/history/<int:record_id>")
 def delete_history(record_id: int):
-    """删除指定 ID 的历史记录。"""
+    """Delete the history record with the given id."""
     history_service.delete_record(record_id)
-    return ok({"id": record_id, "message": "删除成功"})
+    return ok({"id": record_id, "message": "Deleted successfully"})
 
 
 @history_blueprint.delete("/api/history")
 def clear_history():
-    """扩展功能：清空全部历史。"""
+    """Extended feature: delete every history record."""
     deleted = history_service.clear_records()
-    return ok({"deleted": deleted, "message": f"已清空 {deleted} 条历史记录"})
+    return ok({"deleted": deleted, "message": f"Deleted {deleted} history record(s)"})
 
 
 @history_blueprint.get("/api/statistics")
 def statistics():
-    """扩展功能：计算历史统计。"""
+    """Extended feature: aggregated statistics over the history."""
     return ok({"statistics": statistics_service.build_statistics()})

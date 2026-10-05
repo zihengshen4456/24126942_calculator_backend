@@ -1,17 +1,17 @@
-"""计算历史业务逻辑：新增、查询（支持搜索与分页）、删除。"""
+"""Business logic for calculation history: create, query (search + paging), delete."""
 
 from typing import Any, Dict, Optional
 
 from model import history_repository
-from utils.timeutil import current_timestamp
 from utils.exceptions import NotFoundError, ValidationError
+from utils.timeutil import current_timestamp
 
 DEFAULT_PAGE_SIZE = 10
 MAX_PAGE_SIZE = 100
 
 
 def add_record(expression: str, result: Any) -> Dict[str, Any]:
-    """计算成功后写入历史记录。"""
+    """Persist a successful calculation."""
     return history_repository.insert(expression, _stringify(result), current_timestamp())
 
 
@@ -22,7 +22,7 @@ def _stringify(result: Any) -> str:
 
 
 def list_records(keyword: Optional[str], page: int, page_size: int) -> Dict[str, Any]:
-    """分页 + 关键字查询历史记录。"""
+    """Paginated keyword search over the history table."""
     page = max(1, page)
     page_size = min(max(1, page_size), MAX_PAGE_SIZE)
     keyword = (keyword or "").strip() or None
@@ -44,14 +44,14 @@ def list_records(keyword: Optional[str], page: int, page_size: int) -> Dict[str,
 
 
 def delete_record(record_id: int) -> int:
-    """删除单条记录，不存在时抛 404。"""
+    """Delete one record; raise 404 when it does not exist."""
     if record_id <= 0:
-        raise ValidationError("记录 ID 必须是正整数")
+        raise ValidationError("Record id must be a positive integer")
     if not history_repository.delete_by_id(record_id):
-        raise NotFoundError(f"历史记录 {record_id} 不存在")
+        raise NotFoundError(f"History record {record_id} does not exist")
     return record_id
 
 
 def clear_records() -> int:
-    """清空全部历史，返回删除条数。"""
+    """Delete every record and return the number of deleted rows."""
     return history_repository.delete_all()

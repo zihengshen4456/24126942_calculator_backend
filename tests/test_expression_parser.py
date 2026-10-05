@@ -1,4 +1,4 @@
-"""表达式解析器的单元测试（python -m unittest discover tests）。"""
+"""Unit tests for the expression parser (python -m unittest discover tests)."""
 
 import os
 import sys
@@ -31,6 +31,7 @@ class ExpressionParserTest(unittest.TestCase):
         self.assertEqual(evaluate("-5+8"), 3)
         self.assertEqual(evaluate("3*-2"), -6)
         self.assertEqual(evaluate("-(2+3)"), -5)
+        self.assertEqual(evaluate("-2^2"), -4)   # -(2^2), following convention
 
     def test_decimals(self):
         self.assertAlmostEqual(evaluate("0.1+0.2"), 0.3, places=9)
@@ -38,9 +39,11 @@ class ExpressionParserTest(unittest.TestCase):
     def test_power_and_functions(self):
         self.assertEqual(evaluate("2^10"), 1024)
         self.assertEqual(evaluate("2**3"), 8)
+        self.assertEqual(evaluate("2^3^2"), 512)  # right associative
         self.assertEqual(evaluate("sqrt(16)"), 4)
         self.assertEqual(evaluate("max(3,8)"), 8)
         self.assertEqual(evaluate("fact(5)"), 120)
+        self.assertEqual(evaluate("2^-1"), 0.5)
         self.assertAlmostEqual(evaluate("sin(pi/2)"), 1.0, places=9)
 
     def test_division_by_zero(self):
@@ -76,6 +79,10 @@ class CalculatorServiceTest(unittest.TestCase):
     def test_decimal_result_keeps_float(self):
         _, result = self.service.calculate("10/4")
         self.assertEqual(result, 2.5)
+
+    def test_floating_point_noise_is_removed(self):
+        _, result = self.service.calculate("0.1+0.2")
+        self.assertEqual(result, 0.3)
 
     def test_empty_expression(self):
         with self.assertRaises(ValidationError):

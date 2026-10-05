@@ -1,8 +1,8 @@
-"""时间工具：统一后端的时间来源。
+"""Time helpers.
 
-默认使用服务器本地时间；如果部署环境的时区与使用者所在时区不同，
-可以通过环境变量 CALCULATOR_TZ_OFFSET 指定相对 UTC 的小时偏移，
-例如 CALCULATOR_TZ_OFFSET=8 表示东八区（北京时间）。
+Server local time is used by default. When the deployment time zone differs from
+the user's time zone, CALCULATOR_TZ_OFFSET can be set to the UTC offset in hours,
+for example CALCULATOR_TZ_OFFSET=8 for UTC+8.
 """
 
 import os

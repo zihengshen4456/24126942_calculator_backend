@@ -1,43 +1,46 @@
-# 计算器系统 · 后端（Calculator Backend）
+# Calculator Backend
 
-前后端分离的在线计算器系统的**后端服务**，负责表达式解析与计算、输入校验、
-异常处理、计算历史持久化，并对外提供 RESTful API。
+Back-end service of an online calculator built with a front-end / back-end separated
+architecture. It is responsible for expression parsing and evaluation, input validation,
+exception handling and persistence of the calculation history, and exposes all of this
+through a RESTful API.
 
-> 配套前端仓库：见博客中的「前端 GitHub 仓库」链接。
+> The matching front-end repository is linked in the assignment blog post.
 
-## 一、项目介绍
+## 1. Overview
 
-本服务是整个计算器系统的「大脑」：
+This service is the "brain" of the system:
 
-- 前端只负责界面交互与结果展示；
-- 所有数学运算、表达式合法性校验、异常判断都在本服务完成；
-- 每一次成功计算都会写入 SQLite 数据库，前端可随时查询与删除。
+- the front end only handles interaction and presentation;
+- every arithmetic operation, expression validation and error decision happens here;
+- each successful calculation is written to an SQLite database and can be queried or
+  deleted by the client at any time.
 
-核心原则：**前端不参与任何计算，只发送表达式字符串。**
+Core principle: **the front end performs no arithmetic and only sends an expression string.**
 
-## 二、技术栈
+## 2. Technology Stack
 
-| 项目 | 选型 |
+| Item | Choice |
 | --- | --- |
-| 语言 | Python 3.8+（开发环境为 Python 3.13） |
-| Web 框架 | Flask 3.1 |
-| 数据库 | SQLite 3（Python 标准库 `sqlite3`，无需额外安装） |
-| 表达式解析 | 自研「词法分析 + 递归下降语法分析」，不使用 `eval` / `exec` |
-| 测试 | Python 标准库 `unittest` |
+| Language | Python 3.8+ (developed on Python 3.13) |
+| Web framework | Flask 3.1 |
+| Database | SQLite 3 through the standard-library `sqlite3` module |
+| Expression evaluation | Hand-written tokenizer plus recursive descent parser; no `eval` or `exec` |
+| Testing | Standard-library `unittest` |
 
-## 三、运行环境
+## 3. Requirements
 
-- Python 3.8 及以上版本
-- Windows / macOS / Linux 均可运行
-- 除 Flask 外无其他第三方依赖，数据库使用 Python 内置的 SQLite
+- Python 3.8 or later
+- Windows, macOS or Linux
+- No third-party dependency other than Flask; the database is part of the standard library
 
-## 四、安装方式
+## 4. Installation
 
 ```bash
-# 1. 进入后端项目目录
+# 1. Enter the project directory
 cd 24126942_calculator_backend
 
-# 2. （推荐）创建虚拟环境
+# 2. (Recommended) create a virtual environment
 python -m venv .venv
 
 # Windows
@@ -45,21 +48,21 @@ python -m venv .venv
 # macOS / Linux
 source .venv/bin/activate
 
-# 3. 安装依赖
+# 3. Install the dependencies
 pip install -r requirements.txt
 ```
 
-## 五、数据库初始化方式
+## 5. Database Initialisation
 
-**无需手动初始化。**
-
-服务启动时会自动创建数据库文件和 `calculation_history` 表（幂等操作，重复启动不会报错）：
+No manual step is required. The database file and the `calculation_history` table are
+created automatically the first time the service starts, and the operation is idempotent
+so restarting is always safe.
 
 ```
-data/calculator.db          # SQLite 数据库文件（首次启动自动生成）
+data/calculator.db          # created automatically on first start
 ```
 
-表结构：
+Schema:
 
 ```sql
 CREATE TABLE IF NOT EXISTS calculation_history (
@@ -70,60 +73,61 @@ CREATE TABLE IF NOT EXISTS calculation_history (
 );
 ```
 
-如果需要重置数据库，直接删除 `data/calculator.db` 后重新启动服务即可。
+To start from an empty database, delete `data/calculator.db` and restart the service.
 
-## 六、启动方式
+## 6. Running the Service
 
 ```bash
 python run.py
 ```
 
-启动成功后终端会输出：
+On success the console prints:
 
 ```
  * Running on http://127.0.0.1:5000
 ```
 
-访问 <http://127.0.0.1:5000/api/health> 应返回：
+Opening <http://127.0.0.1:5000/api/health> should return:
 
 ```json
 { "success": true, "service": "calculator-backend", "status": "UP" }
 ```
 
-## 七、配置说明
+## 7. Configuration
 
-所有配置通过环境变量传入，均带有合理默认值，不配置也能直接运行：
+All configuration is supplied through environment variables, and every one of them has a
+default, so the service also runs with no configuration at all.
 
-| 环境变量 | 说明 | 默认值 |
+| Variable | Meaning | Default |
 | --- | --- | --- |
-| `CALCULATOR_HOST` | 监听地址 | `127.0.0.1` |
-| `CALCULATOR_PORT` | 监听端口 | `5000` |
-| `CALCULATOR_DB_PATH` | SQLite 数据库文件路径 | `data/calculator.db` |
-| `CALCULATOR_TZ_OFFSET` | 记录时间相对 UTC 的小时偏移，例如 `8` 表示东八区 | 服务器本地时区 |
+| `CALCULATOR_HOST` | Listen address | `127.0.0.1` |
+| `CALCULATOR_PORT` | Listen port | `5000` |
+| `CALCULATOR_DB_PATH` | Path of the SQLite database file | `data/calculator.db` |
+| `CALCULATOR_TZ_OFFSET` | UTC offset in hours used when recording timestamps, e.g. `8` | server local time |
 
-示例（让局域网内其他设备也能访问）：
+Example, making the service reachable from other machines on the network:
 
 ```bash
 CALCULATOR_HOST=0.0.0.0 python run.py
 ```
 
-## 八、API 说明
+## 8. API
 
-所有接口统一返回 JSON，格式约定如下：
+Every endpoint returns JSON in one of two shapes:
 
-- 成功：`{ "success": true, ...业务字段 }`
-- 失败：`{ "success": false, "message": "错误说明", "code": "错误码" }`
+- success: `{ "success": true, ...business fields }`
+- failure: `{ "success": false, "message": "...", "code": "..." }`
 
-| 方法 | 路径 | 说明 |
+| Method | Path | Purpose |
 | --- | --- | --- |
-| `POST` | `/api/calculate` | 计算表达式并写入历史 |
-| `GET` | `/api/history` | 查询历史（支持 `keyword`、`page`、`pageSize`） |
-| `DELETE` | `/api/history/{id}` | 删除指定历史记录 |
-| `DELETE` | `/api/history` | 清空全部历史（扩展功能） |
-| `GET` | `/api/statistics` | 计算统计信息（扩展功能） |
-| `GET` | `/api/health` | 健康检查 |
+| `POST` | `/api/calculate` | Evaluate an expression and record it |
+| `GET` | `/api/history` | Query the history (`keyword`, `page`, `pageSize`) |
+| `DELETE` | `/api/history/{id}` | Delete one history record |
+| `DELETE` | `/api/history` | Delete all history records (extended feature) |
+| `GET` | `/api/statistics` | Aggregated statistics (extended feature) |
+| `GET` | `/api/health` | Health check |
 
-### 1. 计算表达式
+### 8.1 Evaluate an expression
 
 ```http
 POST /api/calculate
@@ -132,7 +136,7 @@ Content-Type: application/json
 { "expression": "(1+2)*3" }
 ```
 
-成功响应（HTTP 200）：
+Success (HTTP 200):
 
 ```json
 {
@@ -144,13 +148,13 @@ Content-Type: application/json
 }
 ```
 
-失败响应（HTTP 400）：
+Failure (HTTP 400):
 
 ```json
-{ "success": false, "message": "除数不能为 0", "code": "DIVISION_BY_ZERO" }
+{ "success": false, "message": "Division by zero is not allowed", "code": "DIVISION_BY_ZERO" }
 ```
 
-### 2. 查询历史
+### 8.2 Query the history
 
 ```http
 GET /api/history?keyword=1%2B2&page=1&pageSize=10
@@ -170,19 +174,19 @@ GET /api/history?keyword=1%2B2&page=1&pageSize=10
 }
 ```
 
-### 3. 删除历史
+### 8.3 Delete one record
 
 ```http
 DELETE /api/history/3
 ```
 
-成功返回 200；记录不存在返回 404：
+Returns 200 on success, or 404 when the record does not exist:
 
 ```json
-{ "success": false, "message": "历史记录 3 不存在", "code": "NOT_FOUND" }
+{ "success": false, "message": "History record 3 does not exist", "code": "NOT_FOUND" }
 ```
 
-### 4. 计算统计（扩展功能）
+### 8.4 Statistics (extended feature)
 
 ```json
 {
@@ -197,85 +201,89 @@ DELETE /api/history/3
 }
 ```
 
-## 九、支持的表达式语法
+## 9. Supported Expression Syntax
 
-| 类型 | 说明 | 示例 |
+| Category | Notes | Examples |
 | --- | --- | --- |
-| 四则运算 | `+ - * /` | `12+8`、`10/4` |
-| 取模 | `%` | `10%3` |
-| 幂运算 | `^` 或 `**`，右结合 | `2^10`、`2^-1` |
-| 括号 | 改变运算优先级 | `(1+2)*3` |
-| 一元正负号 | 可出现在任意位置 | `-5+8`、`3*-2` |
-| 小数 | 支持 `.5` 写法 | `0.1+0.2` |
-| 常量 | `pi`、`e`、`tau` | `2*pi` |
-| 一元函数 | `sqrt cbrt abs sin cos tan asin acos atan ln log log2 exp floor ceil round fact` | `sqrt(16)`、`fact(5)` |
-| 二元函数 | `pow hypot max min mod` | `pow(2,10)`、`max(3,8)` |
+| Basic arithmetic | `+ - * /` | `12+8`, `10/4` |
+| Modulo | `%` | `10%3` |
+| Exponentiation | `^` or `**`, right associative | `2^10`, `2^-1` |
+| Parentheses | Change the order of evaluation | `(1+2)*3` |
+| Unary sign | Allowed in any operand position | `-5+8`, `3*-2` |
+| Decimals | The `.5` form is accepted | `0.1+0.2` |
+| Constants | `pi`, `e`, `tau` | `2*pi` |
+| Unary functions | `sqrt cbrt abs sin cos tan asin acos atan ln log log2 exp floor ceil round fact` | `sqrt(16)`, `fact(5)` |
+| Binary functions | `pow hypot max min mod` | `pow(2,10)`, `max(3,8)` |
 
-非法输入会返回明确的错误信息，例如：
+Invalid input produces an explicit error:
 
-| 输入 | 返回的错误码 | 提示信息 |
+| Input | Error code | Message |
 | --- | --- | --- |
-| `1/0` | `DIVISION_BY_ZERO` | 除数不能为 0 |
-| `1+` | `EXPRESSION_SYNTAX_ERROR` | 表达式不完整 |
-| `(1+2` | `EXPRESSION_SYNTAX_ERROR` | 括号不匹配，缺少 ')' |
-| `abc` | `UNKNOWN_IDENTIFIER` | 未知的常量或函数 'abc' |
-| `1@2` | `UNSUPPORTED_CHARACTER` | 表达式包含不支持的字符 '@' |
+| `1/0` | `DIVISION_BY_ZERO` | Division by zero is not allowed |
+| `1+` | `EXPRESSION_SYNTAX_ERROR` | Expression is incomplete |
+| `(1+2` | `EXPRESSION_SYNTAX_ERROR` | Unbalanced parentheses: ')' expected |
+| `abc` | `UNKNOWN_IDENTIFIER` | Unknown constant or function 'abc' |
+| `1@2` | `UNSUPPORTED_CHARACTER` | Unsupported character '@' in expression |
 
-## 十、运行测试
+## 10. Running the Tests
 
 ```bash
 python -m unittest discover -s tests -t . -v
 ```
 
-测试覆盖表达式解析、优先级、括号、一元运算、小数、除零、非法输入、
-注入防护，以及计算 / 查询 / 删除 / 统计等接口。
+The suite covers expression parsing, precedence, parentheses, unary operators, decimals,
+division by zero, invalid input and injection attempts, as well as the calculation,
+history, search, pagination, deletion and statistics endpoints.
 
-## 十一、前后端连接方式
+## 11. Connecting the Front End
 
-1. 先启动后端：`python run.py`（默认监听 `127.0.0.1:5000`）；
-2. 再打开前端页面，前端默认请求 `http://127.0.0.1:5000/api`；
-3. 如果后端部署在其他地址，可以在前端 URL 后追加 `?api=` 参数指定，例如：
+1. Start the back end with `python run.py` (listening on `127.0.0.1:5000` by default).
+2. Open the front-end page; it requests `http://127.0.0.1:5000/api` by default.
+3. If the API is hosted elsewhere, append the `?api=` parameter to the page URL instead of
+   editing the source:
 
    ```
    calculator.html?api=http://192.168.1.10:5000/api
    ```
 
-后端已开启 CORS（`Access-Control-Allow-Origin: *`），允许前端与服务端分离部署。
+CORS is enabled on the server (`Access-Control-Allow-Origin: *`), so the two parts may be
+deployed separately.
 
-## 十二、项目结构
+## 12. Project Structure
 
 ```
 24126942_calculator_backend/
 ├── src/
-│   ├── app.py                    # Flask 应用工厂：注册蓝图、异常处理、CORS
-│   ├── controller/               # 控制器层：接收请求、参数校验
+│   ├── app.py                    # Flask application factory: blueprints, errors, CORS
+│   ├── controller/               # HTTP layer: receive requests, validate parameters
 │   │   ├── calculate_controller.py
 │   │   └── history_controller.py
-│   ├── service/                  # 业务层：计算、历史、统计
-│   │   ├── expression_parser.py  # 自研表达式解析器（词法 + 递归下降）
+│   ├── service/                  # Business layer: calculation, history, statistics
+│   │   ├── expression_parser.py  # Hand-written tokenizer and recursive descent parser
 │   │   ├── calculator_service.py
 │   │   ├── history_service.py
 │   │   └── statistics_service.py
-│   ├── model/                    # 数据层：数据库连接与 SQL
+│   ├── model/                    # Data layer: connection handling and SQL
 │   │   ├── database.py
 │   │   └── history_repository.py
-│   └── utils/                    # 通用工具：响应格式、异常、时间
+│   └── utils/                    # Shared helpers: responses, exceptions, time
 │       ├── api_response.py
 │       ├── exceptions.py
 │       └── timeutil.py
-├── tests/                        # 单元测试与接口测试
-├── data/                         # SQLite 数据库文件目录（自动生成）
-├── run.py                        # 启动入口
+├── tests/                        # Unit and integration tests
+├── data/                         # Location of the SQLite file (created automatically)
+├── run.py                        # Entry point
 ├── requirements.txt
 ├── README.md
 └── codestyle.md
 ```
 
-## 十三、安全说明
+## 13. Security Notes
 
-本项目**没有**使用 `eval`、`exec` 或任何等价的动态代码执行方式。
+This project does **not** use `eval`, `exec` or any equivalent form of dynamic code
+execution.
 
-解析器只识别有限的运算符、函数与常量：词法分析阶段会拒绝所有不认识的字符，
-语法分析阶段会拒绝不符合文法的结构。因此像
-`__import__('os').system('...')` 这类输入会在解析阶段直接报错，
-不存在代码注入风险。
+The parser recognises only a fixed set of operators, functions and constants. The
+tokenizer rejects every character outside that set, and the syntax analyser rejects every
+structure outside the grammar. An input such as `__import__('os').system('...')` therefore
+fails during parsing, and there is no code-injection surface.

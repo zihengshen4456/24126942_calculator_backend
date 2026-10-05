@@ -1,11 +1,11 @@
-"""SQLite 数据库连接与建表逻辑。"""
+"""SQLite connection handling and schema creation."""
 
 import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-# src/model/database.py -> src/model -> src -> 项目根目录
+# src/model/database.py -> src/model -> src -> project root
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "calculator.db"
 
@@ -22,7 +22,7 @@ CREATE INDEX IF NOT EXISTS idx_history_created_at
 
 
 def get_database_path() -> Path:
-    """返回数据库文件路径，允许通过环境变量覆盖。"""
+    """Return the database file path; can be overridden by an environment variable."""
     configured = os.environ.get("CALCULATOR_DB_PATH")
     if configured:
         return Path(configured).expanduser().resolve()
@@ -30,7 +30,7 @@ def get_database_path() -> Path:
 
 
 def get_connection() -> sqlite3.Connection:
-    """创建一个新的数据库连接（每个请求独立连接，避免线程问题）。"""
+    """Create a new connection (one per request avoids thread issues)."""
     db_path = get_database_path()
     db_path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(db_path, timeout=10)
@@ -40,7 +40,7 @@ def get_connection() -> sqlite3.Connection:
 
 @contextmanager
 def connection_scope():
-    """连接上下文管理器：正常结束时提交事务，无论如何都关闭连接。"""
+    """Commit on success and always close the connection."""
     connection = get_connection()
     try:
         yield connection
@@ -50,6 +50,6 @@ def connection_scope():
 
 
 def init_database() -> None:
-    """初始化数据库结构（幂等，可重复调用）。"""
+    """Create the schema (idempotent, safe to call on every start-up)."""
     with connection_scope() as connection:
         connection.executescript(SCHEMA)

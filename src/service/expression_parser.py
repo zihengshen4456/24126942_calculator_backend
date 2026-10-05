@@ -1,19 +1,21 @@
-"""安全的数学表达式解析器（不使用 eval / exec）。
+"""Safe mathematical expression parser (no eval / exec).
 
-实现思路：
-1. 词法分析（Tokenize）：把字符串切成数字、运算符、括号、标识符四类词法单元；
-2. 语法分析（递归下降）：按优先级从低到高依次解析表达式、项、一元、幂、原子；
-3. 求值：在语法分析过程中直接自底向上求值。
+Implementation approach:
+1. Lexical analysis (tokenize): split the input string into numbers, operators,
+   parentheses and identifiers.
+2. Syntax analysis (recursive descent): parse the grammar from the lowest to the
+   highest precedence level and evaluate while parsing.
 
-文法（优先级由低到高）：
+Grammar (precedence from low to high):
     expression := term (('+' | '-') term)*
     term       := unary (('*' | '/' | '%') unary)*
     unary      := ('+' | '-') unary | power
-    power      := primary ('^' unary)?          # 幂运算右结合，支持 2^-1
+    power      := primary ('^' unary)?          # right associative, allows 2^-1
     primary    := NUMBER | IDENT | IDENT '(' arguments ')' | '(' expression ')'
 
-因为只认识有限的运算符、函数和常量，任何试图执行通用代码的输入都会在
-词法或语法阶段被拒绝，从原理上避免了代码注入。
+The parser only recognises a fixed set of operators, functions and constants.
+Anything that tries to execute general purpose code is rejected during the
+lexical or the syntax phase, which removes the need for eval.
 """
 
 import math
@@ -21,7 +23,7 @@ from typing import Any, Dict, List, Tuple
 
 
 class ExpressionError(Exception):
-    """表达式错误的基类，携带错误码与 HTTP 状态码。"""
+    """Base class for expression errors. Carries an error code."""
 
     code = "EXPRESSION_ERROR"
     status = 400
@@ -34,11 +36,11 @@ class ExpressionError(Exception):
 
 
 def _build_functions() -> Dict[str, Tuple[int, Any]]:
-    """函数名 -> (参数个数, 实现)。"""
+    """Mapping of function name -> (arity, implementation)."""
 
     def mod(a: float, b: float) -> float:
         if b == 0:
-            raise ExpressionError("取模运算的除数不能为 0", "DIVISION_BY_ZERO")
+            raise ExpressionError("Modulo by zero is not allowed", "DIVISION_BY_ZERO")
         return math.fmod(a, b)
 
     return {
@@ -58,8 +60,8 @@ def _build_functions() -> Dict[str, Tuple[int, Any]]:
         "exp": (1, math.exp),
         "floor": (1, math.floor),
         "ceil": (1, math.ceil),
-        "round": (1, math.floor),  # 占位，下面会被 round_half_up 覆盖
-        "fact": (1, None),  # 占位，下面会被 factorial 覆盖
+        "round": (1, math.floor),  # placeholder, replaced by round_half_up below
+        "fact": (1, None),         # placeholder, replaced by factorial below
         "pow": (2, math.pow),
         "hypot": (2, math.hypot),
         "max": (2, max),
@@ -70,9 +72,13 @@ def _build_functions() -> Dict[str, Tuple[int, Any]]:
 
 def _factorial(x: float) -> float:
     if x < 0 or abs(x - round(x)) > 1e-9:
-        raise ExpressionError("阶乘只支持非负整数", "FUNCTION_DOMAIN_ERROR")
+        raise ExpressionError(
+            "fact() only accepts non-negative integers", "FUNCTION_DOMAIN_ERROR"
+        )
     if x > 170:
-        raise ExpressionError("阶乘参数过大，结果超出可表示范围", "FUNCTION_DOMAIN_ERROR")
+        raise ExpressionError(
+            "fact() argument is too large to represent", "FUNCTION_DOMAIN_ERROR"
+        )
     return float(math.factorial(int(round(x))))
 
 
@@ -94,21 +100,21 @@ MAX_NESTING_DEPTH = 32
 
 
 class Token:
-    """词法单元。"""
+    """A single lexical token."""
 
     __slots__ = ("kind", "value", "position")
 
     def __init__(self, kind: str, value: Any, position: int):
         self.kind = kind          # NUMBER / IDENT / OP / LPAREN / RPAREN / COMMA
         self.value = value
-        self.position = position  # 在原始字符串中的下标，用于报错定位
+        self.position = position  # index in the original string, used in errors
 
-    def __repr__(self) -> str:  # pragma: no cover - 仅调试用
+    def __repr__(self) -> str:  # pragma: no cover - debugging helper only
         return f"Token({self.kind}, {self.value!r}, {self.position})"
 
 
 def tokenize(text: str) -> List[Token]:
-    """把表达式字符串切分成词法单元列表。"""
+    """Split an expression string into a list of tokens."""
     tokens: List[Token] = []
     index = 0
     length = len(text)
@@ -120,7 +126,7 @@ def tokenize(text: str) -> List[Token]:
             index += 1
             continue
 
-        # 数字：整数、小数、.5 这类写法
+        # Numbers: integers, decimals and the ".5" form
         if char.isdigit() or char == ".":
             start = index
             dot_count = 0
@@ -131,12 +137,12 @@ def tokenize(text: str) -> List[Token]:
             literal = text[start:index]
             if dot_count > 1 or literal == ".":
                 raise ExpressionError(
-                    f"数字格式错误：'{literal}'", "EXPRESSION_SYNTAX_ERROR"
+                    f"Invalid number format: '{literal}'", "EXPRESSION_SYNTAX_ERROR"
                 )
             tokens.append(Token("NUMBER", float(literal), start))
             continue
 
-        # 标识符：函数名或常量名
+        # Identifiers: function names or constant names
         if char.isalpha() or char == "_":
             start = index
             while index < length and (text[index].isalnum() or text[index] == "_"):
@@ -144,7 +150,7 @@ def tokenize(text: str) -> List[Token]:
             tokens.append(Token("IDENT", text[start:index].lower(), start))
             continue
 
-        # 幂运算：同时接受 ^ 和 ** 两种写法
+        # Exponentiation: accept both ^ and **
         if text.startswith("**", index):
             tokens.append(Token("OP", "^", index))
             index += 2
@@ -171,23 +177,23 @@ def tokenize(text: str) -> List[Token]:
             continue
 
         raise ExpressionError(
-            f"表达式包含不支持的字符 '{char}'", "UNSUPPORTED_CHARACTER"
+            f"Unsupported character '{char}' in expression", "UNSUPPORTED_CHARACTER"
         )
 
     if not tokens:
-        raise ExpressionError("表达式不能为空", "EXPRESSION_SYNTAX_ERROR")
+        raise ExpressionError("Expression must not be empty", "EXPRESSION_SYNTAX_ERROR")
     return tokens
 
 
 class Parser:
-    """递归下降解析器，解析与求值同时完成。"""
+    """Recursive descent parser that evaluates while parsing."""
 
     def __init__(self, tokens: List[Token]):
         self.tokens = tokens
         self.index = 0
         self.depth = 0
 
-    # ---- 工具方法 -------------------------------------------------
+    # ---- helpers ---------------------------------------------------
 
     def _peek(self):
         if self.index < len(self.tokens):
@@ -209,19 +215,19 @@ class Parser:
     def _enter(self) -> None:
         self.depth += 1
         if self.depth > MAX_NESTING_DEPTH:
-            raise ExpressionError("表达式嵌套层级过深", "EXPRESSION_TOO_DEEP")
+            raise ExpressionError("Expression is nested too deeply", "EXPRESSION_TOO_DEEP")
 
     def _leave(self) -> None:
         self.depth -= 1
 
-    # ---- 语法规则 -------------------------------------------------
+    # ---- grammar rules ---------------------------------------------
 
     def parse(self) -> float:
         value = self._parse_expression()
         if self.index != len(self.tokens):
             token = self.tokens[self.index]
             raise ExpressionError(
-                f"表达式在位置 {token.position} 处存在多余内容",
+                f"Unexpected content at position {token.position}",
                 "EXPRESSION_SYNTAX_ERROR",
             )
         return value
@@ -251,11 +257,11 @@ class Parser:
                 value = value * right
             elif operator == "/":
                 if right == 0:
-                    raise ExpressionError("除数不能为 0", "DIVISION_BY_ZERO")
+                    raise ExpressionError("Division by zero is not allowed", "DIVISION_BY_ZERO")
                 value = value / right
             else:
                 if right == 0:
-                    raise ExpressionError("取模运算的除数不能为 0", "DIVISION_BY_ZERO")
+                    raise ExpressionError("Modulo by zero is not allowed", "DIVISION_BY_ZERO")
                 value = math.fmod(value, right)
         return value
 
@@ -273,13 +279,13 @@ class Parser:
     def _parse_power(self) -> float:
         base = self._parse_primary()
         if self._match_operator("^") is not None:
-            # 右结合：2^3^2 == 2^(3^2)
+            # Right associative: 2^3^2 == 2^(3^2)
             exponent = self._parse_unary()
             try:
                 return float(math.pow(base, exponent))
             except (ValueError, OverflowError):
                 raise ExpressionError(
-                    f"无法计算 {base}^{exponent}（结果超出定义域或范围）",
+                    f"Cannot evaluate {base}^{exponent} (out of domain or range)",
                     "FUNCTION_DOMAIN_ERROR",
                 )
         return base
@@ -287,7 +293,7 @@ class Parser:
     def _parse_primary(self) -> float:
         token = self._peek()
         if token is None:
-            raise ExpressionError("表达式不完整", "EXPRESSION_SYNTAX_ERROR")
+            raise ExpressionError("Expression is incomplete", "EXPRESSION_SYNTAX_ERROR")
 
         if token.kind == "NUMBER":
             self._advance()
@@ -302,7 +308,9 @@ class Parser:
                 self._leave()
             closing = self._peek()
             if closing is None or closing.kind != "RPAREN":
-                raise ExpressionError("括号不匹配，缺少 ')'", "EXPRESSION_SYNTAX_ERROR")
+                raise ExpressionError(
+                    "Unbalanced parentheses: ')' expected", "EXPRESSION_SYNTAX_ERROR"
+                )
             self._advance()
             return value
 
@@ -310,7 +318,7 @@ class Parser:
             return self._parse_identifier()
 
         raise ExpressionError(
-            f"位置 {token.position} 处的 '{token.value}' 不是合法的运算对象",
+            f"'{token.value}' at position {token.position} is not a valid operand",
             "EXPRESSION_SYNTAX_ERROR",
         )
 
@@ -321,9 +329,9 @@ class Parser:
         if self._peek() and self._peek().kind == "LPAREN":
             if name not in FUNCTIONS:
                 raise ExpressionError(
-                    f"不支持的函数 '{name}'", "UNSUPPORTED_FUNCTION"
+                    f"Unsupported function '{name}'", "UNSUPPORTED_FUNCTION"
                 )
-            self._advance()  # 吃掉 '('
+            self._advance()  # consume '('
             arguments: List[float] = []
             if self._peek() and self._peek().kind == "RPAREN":
                 self._advance()
@@ -338,7 +346,8 @@ class Parser:
                 closing = self._peek()
                 if closing is None or closing.kind != "RPAREN":
                     raise ExpressionError(
-                        f"函数 '{name}' 的括号不匹配", "EXPRESSION_SYNTAX_ERROR"
+                        f"Unbalanced parentheses in function '{name}'",
+                        "EXPRESSION_SYNTAX_ERROR",
                     )
                 self._advance()
             return self._apply_function(name, arguments, token.position)
@@ -347,7 +356,7 @@ class Parser:
             return CONSTANTS[name]
 
         raise ExpressionError(
-            f"未知的常量或函数 '{name}'", "UNKNOWN_IDENTIFIER"
+            f"Unknown constant or function '{name}'", "UNKNOWN_IDENTIFIER"
         )
 
     @staticmethod
@@ -355,7 +364,7 @@ class Parser:
         arity, implementation = FUNCTIONS[name]
         if len(arguments) != arity:
             raise ExpressionError(
-                f"函数 '{name}' 需要 {arity} 个参数，实际传入 {len(arguments)} 个",
+                f"Function '{name}' expects {arity} argument(s) but received {len(arguments)}",
                 "FUNCTION_ARITY_ERROR",
             )
         try:
@@ -363,17 +372,17 @@ class Parser:
         except ExpressionError:
             raise
         except ZeroDivisionError:
-            raise ExpressionError("除数不能为 0", "DIVISION_BY_ZERO")
+            raise ExpressionError("Division by zero is not allowed", "DIVISION_BY_ZERO")
         except (ValueError, OverflowError):
             raise ExpressionError(
-                f"函数 '{name}' 在位置 {position} 处的参数超出定义域",
+                f"Argument of function '{name}' at position {position} is out of domain",
                 "FUNCTION_DOMAIN_ERROR",
             )
 
 
 def evaluate(expression: str) -> float:
-    """解析并计算表达式，返回浮点结果。
+    """Parse and evaluate an expression, returning a float.
 
-    任何非法输入都会抛出 ExpressionError 的子类实例。
+    Any invalid input raises an ExpressionError subclass.
     """
     return Parser(tokenize(expression)).parse()

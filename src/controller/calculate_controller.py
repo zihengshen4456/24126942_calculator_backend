@@ -1,4 +1,4 @@
-"""计算相关接口：POST /api/calculate。"""
+"""Calculation endpoint: POST /api/calculate."""
 
 from flask import Blueprint, request
 
@@ -14,12 +14,12 @@ calculator_service = CalculatorService()
 
 @calculate_blueprint.post("/api/calculate")
 def calculate():
-    """接收表达式 -> 后端计算 -> 写入历史 -> 返回结果。"""
+    """Receive an expression, evaluate it, store it and return the result."""
     payload = request.get_json(silent=True)
     if payload is None:
-        raise ValidationError("请求体必须是合法的 JSON")
+        raise ValidationError("Request body must be valid JSON")
     if "expression" not in payload:
-        raise ValidationError("请求体缺少 expression 字段")
+        raise ValidationError("Request body is missing the 'expression' field")
 
     expression, result = calculator_service.calculate(payload["expression"])
     record = add_record(expression, result)

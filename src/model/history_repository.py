@@ -1,4 +1,4 @@
-"""计算历史的数据访问层：所有 SQL 都集中在这里。"""
+"""Data access layer for calculation history: every SQL statement lives here."""
 
 from typing import Any, Dict, List, Optional
 
@@ -15,7 +15,7 @@ def _row_to_dict(row) -> Dict[str, Any]:
 
 
 def insert(expression: str, result: str, created_at: str) -> Dict[str, Any]:
-    """插入一条计算历史，返回带自增主键的完整记录。"""
+    """Insert one history row and return it including the generated id."""
     with connection_scope() as connection:
         cursor = connection.execute(
             "INSERT INTO calculation_history (expression, result, created_at) "
@@ -32,7 +32,7 @@ def insert(expression: str, result: str, created_at: str) -> Dict[str, Any]:
 
 
 def find_all(keyword: Optional[str] = None) -> List[Dict[str, Any]]:
-    """按关键字（表达式或结果）查询全部历史，按时间倒序。"""
+    """Return history rows, newest first, optionally filtered by keyword."""
     sql = "SELECT id, expression, result, created_at FROM calculation_history"
     params: List[Any] = []
     if keyword:
@@ -46,7 +46,7 @@ def find_all(keyword: Optional[str] = None) -> List[Dict[str, Any]]:
 
 
 def count(keyword: Optional[str] = None) -> int:
-    """统计历史记录条数。"""
+    """Count history rows, optionally filtered by keyword."""
     sql = "SELECT COUNT(*) AS total FROM calculation_history"
     params: List[Any] = []
     if keyword:
@@ -59,7 +59,7 @@ def count(keyword: Optional[str] = None) -> int:
 
 
 def delete_by_id(record_id: int) -> bool:
-    """删除指定记录，返回是否真的删掉了一行。"""
+    """Delete one row; return whether a row was actually removed."""
     with connection_scope() as connection:
         cursor = connection.execute(
             "DELETE FROM calculation_history WHERE id = ?", (record_id,)
@@ -68,7 +68,7 @@ def delete_by_id(record_id: int) -> bool:
 
 
 def delete_all() -> int:
-    """清空全部历史，返回删除条数。"""
+    """Delete every row and return the number of deleted rows."""
     with connection_scope() as connection:
         cursor = connection.execute("DELETE FROM calculation_history")
         return cursor.rowcount

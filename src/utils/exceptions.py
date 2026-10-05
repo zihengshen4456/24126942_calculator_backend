@@ -1,12 +1,13 @@
-"""业务异常定义。
+"""Business exceptions.
 
-所有可预期的错误（表达式非法、除零、记录不存在等）都通过异常向上抛出，
-由统一异常处理器转换成标准 JSON 响应，避免在控制器里写大量 if/else。
+Every predictable failure (invalid expression, division by zero, missing record)
+is raised as an exception and converted into a standard JSON response by the
+global error handlers, so controllers stay free of error-handling boilerplate.
 """
 
 
 class AppError(Exception):
-    """业务异常基类。"""
+    """Base class for business errors."""
 
     code = "APP_ERROR"
     status = 400
@@ -21,14 +22,14 @@ class AppError(Exception):
 
 
 class ValidationError(AppError):
-    """输入校验失败，对应 HTTP 400。"""
+    """Invalid input, mapped to HTTP 400."""
 
     code = "VALIDATION_ERROR"
     status = 400
 
 
 class NotFoundError(AppError):
-    """资源不存在，对应 HTTP 404。"""
+    """Missing resource, mapped to HTTP 404."""
 
     code = "NOT_FOUND"
     status = 404

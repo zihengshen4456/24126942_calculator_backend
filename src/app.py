@@ -1,4 +1,4 @@
-"""Flask 应用工厂：注册蓝图、统一异常处理、跨域配置。"""
+"""Flask application factory: blueprints, error handling and CORS."""
 
 from flask import Flask, jsonify, request
 from werkzeug.exceptions import HTTPException
@@ -27,7 +27,7 @@ def create_app() -> Flask:
 
 
 def _register_cors(app: Flask) -> None:
-    """前后端分离部署时需要跨域访问，这里统一加上 CORS 响应头。"""
+    """The front end is deployed separately, so CORS headers are set globally."""
 
     @app.after_request
     def add_cors_headers(response):
@@ -37,7 +37,7 @@ def _register_cors(app: Flask) -> None:
         return response
 
     @app.route("/api/<path:_any>", methods=["OPTIONS"])
-    def preflight(_any):  # pragma: no cover - 由浏览器触发
+    def preflight(_any):  # pragma: no cover - triggered by browsers
         return "", 204
 
 
@@ -51,7 +51,7 @@ def _register_health_check(app: Flask) -> None:
         return jsonify(
             {
                 "success": True,
-                "service": "前后端分离计算器 - 后端服务",
+                "service": "Front-end / back-end separated calculator - API",
                 "endpoints": [
                     "POST   /api/calculate",
                     "GET    /api/history?keyword=&page=1&pageSize=10",
@@ -71,14 +71,17 @@ def _register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(HTTPException)
     def handle_http_error(error: HTTPException):
-        return fail(error.description or error.name, error.name.upper().replace(" ", "_"),
-                    error.code or 500)
+        return fail(
+            error.description or error.name,
+            error.name.upper().replace(" ", "_"),
+            error.code or 500,
+        )
 
     @app.errorhandler(Exception)
     def handle_unexpected_error(error: Exception):
-        app.logger.exception("未预期的异常: %s", error)
-        return fail("服务器内部错误", "INTERNAL_ERROR", 500)
+        app.logger.exception("Unexpected error: %s", error)
+        return fail("Internal server error", "INTERNAL_ERROR", 500)
 
     @app.errorhandler(404)
     def handle_not_found(_error):
-        return fail(f"接口 {request.path} 不存在", "NOT_FOUND", 404)
+        return fail(f"Endpoint {request.path} does not exist", "NOT_FOUND", 404)

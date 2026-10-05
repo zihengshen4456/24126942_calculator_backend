@@ -1,4 +1,4 @@
-"""扩展功能：计算历史统计。"""
+"""Extended feature: statistics over the calculation history."""
 
 import re
 from collections import Counter
@@ -7,11 +7,12 @@ from typing import Any, Dict
 from model import history_repository
 from utils.timeutil import current_date
 
+# Matches a binary operator between two operands, ignoring unary signs.
 OPERATOR_PATTERN = re.compile(r"(?<=[\d).])\s*([+\-*/%^])\s*(?=[\d.(])")
 
 
 def build_statistics() -> Dict[str, Any]:
-    """统计总记录数、今日记录数、运算符使用情况。"""
+    """Report total records, records created today and operator usage."""
     records = history_repository.find_all()
     today = current_date()
 

@@ -1,12 +1,13 @@
-"""后端服务启动入口。
+"""Entry point of the back-end service.
 
-用法：
+Usage:
     python run.py
 
-默认监听 http://127.0.0.1:5000 ，可通过环境变量覆盖：
-    CALCULATOR_HOST  监听地址，默认 127.0.0.1
-    CALCULATOR_PORT  监听端口，默认 5000
-    CALCULATOR_DB_PATH  SQLite 数据库文件路径
+Listens on http://127.0.0.1:5000 by default. The following environment
+variables can be used to override the defaults:
+    CALCULATOR_HOST     listen address, default 127.0.0.1
+    CALCULATOR_PORT     listen port, default 5000
+    CALCULATOR_DB_PATH  path of the SQLite database file
 """
 
 import os
@@ -16,7 +17,7 @@ from pathlib import Path
 SRC_DIR = Path(__file__).resolve().parent / "src"
 sys.path.insert(0, str(SRC_DIR))
 
-from app import create_app  # noqa: E402  (需要先注册好 src 目录)
+from app import create_app  # noqa: E402  (src must be on sys.path first)
 
 
 def main() -> None:
